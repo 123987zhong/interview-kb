@@ -42,6 +42,23 @@ function json(res, status, obj) {
   })
 }
 
+/** 配置自检：GET /api/chat 返回各环境变量是否已配置（只暴露布尔值，不泄露内容） */
+function statusPayload(env) {
+  env = env || {}
+  const apiKey = env.DEEPSEEK_API_KEY || (typeof process !== 'undefined' && process.env && process.env.DEEPSEEK_API_KEY)
+  const accessPassword = env.ACCESS_PASSWORD || (typeof process !== 'undefined' && process.env && process.env.ACCESS_PASSWORD)
+  const searchProvider = env.TAVILY_API_KEY ? 'tavily' : env.BOCHA_API_KEY ? 'bocha' : env.ZHIPU_API_KEY ? 'zhipu' : 'baidu(默认)'
+  return {
+    ok: !!apiKey && !!accessPassword,
+    deepseek: !!apiKey,
+    password: !!accessPassword,
+    searchProvider,
+    fix: (!apiKey || !accessPassword)
+      ? '到 EdgeOne Pages 控制台 → 你的项目 → 设置 → 环境变量，添加 DEEPSEEK_API_KEY 和 ACCESS_PASSWORD（值为网站访问密码），保存后重新部署。'
+      : null
+  }
+}
+
 function safeEqual(a, b) {
   if (typeof a !== 'string' || typeof b !== 'string') return false
   if (a.length !== b.length) return false
@@ -226,8 +243,8 @@ export async function handleChat(request, env) {
     return json(null, 400, { error: 'Invalid JSON body' })
   }
 
-  if (!apiKey) return json(null, 500, { error: '服务端未配置 DEEPSEEK_API_KEY' })
-  if (!accessPassword) return json(null, 500, { error: '服务端未配置 ACCESS_PASSWORD' })
+  if (!apiKey) return json(null, 500, { error: '服务端未配置 DEEPSEEK_API_KEY。到 EdgeOne Pages → 设置 → 环境变量 添加后重新部署。打开 /api/chat 可查看配置自检。' })
+  if (!accessPassword) return json(null, 500, { error: '服务端未配置 ACCESS_PASSWORD（值=网站访问密码）。到 EdgeOne Pages → 设置 → 环境变量 添加后重新部署。打开 /api/chat 可查看配置自检。' })
   if (!safeEqual(String(body.password || ''), accessPassword)) {
     return json(null, 401, { error: '访问口令错误，请在设置中检查' })
   }
