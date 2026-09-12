@@ -114,7 +114,7 @@ const BAIDU_UA = {
 
 async function resolveBaiduLink(link) {
   try {
-    const res = await fetch(link, { headers: BAIDU_UA, redirect: 'manual' })
+    const res = await fetch(link, { headers: BAIDU_UA, redirect: 'manual', signal: AbortSignal.timeout(2500) })
     const loc = res.headers.get('location')
     return loc && /^https?:\/\//.test(loc) ? loc : link
   } catch { return link }
@@ -139,8 +139,8 @@ async function baiduSearch(query, count = 5) {
     raw.push({ title, link: m[1], snippet: stripTags(absM ? absM[1] : m[3]).slice(0, 420) })
   }
   if (!raw.length) throw new Error('baidu 解析为空')
-  // 并行解析百度跳转拿到真实 URL；同域名最多保留 2 条以增加来源多样性
-  const resolved = await Promise.all(raw.map((r) => resolveBaiduLink(r.link).then((url) => ({ ...r, url }))))
+  // 并行解析百度跳转拿真实 URL（只解析前 count 条，控制在 ~1s 内）；同域名最多 2 条保证多样性
+  const resolved = await Promise.all(raw.slice(0, count).map((r) => resolveBaiduLink(r.link).then((url) => ({ ...r, url }))))
   const perDomain = new Map()
   const out = []
   for (const r of resolved) {
